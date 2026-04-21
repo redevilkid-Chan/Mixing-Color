@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级蜡烛染料调色指南 - 数字化复刻版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #0f0f0f; 
+            background-image: radial-gradient(#222 0.5px, transparent 0.5px);
+            background-size: 10px 10px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            color: #eee; 
+        }
+        .card { border-radius: 1rem; background: #1a1a1a; border: 1px solid #333; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+        .tab-active { color: #ffffff; background: #e11d48; border-radius: 0.5rem; }
+        
+        .mixing-cell { background: #262626; border: 1px solid #333; border-radius: 4px; text-align: center; padding: 4px; }
+        
+        #dynamic-preview {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px; width: 20px;
+            background: #e11d48; border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        .reference-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+        }
+        .swatch-box { height: 28px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body class="p-3 md:p-6 pb-12">
+    <div class="max-w-md mx-auto card overflow-hidden flex flex-col" style="height: 90vh;">
+        
+        <!-- 顶部导航 -->
+        <div class="flex p-2 gap-1 bg-black shrink-0">
+            <button onclick="switchTab('guide')" id="btn-guide" class="flex-1 py-2 text-[10px] font-bold transition-all tab-active uppercase">Mixing Chart</button>
+            <button onclick="switchTab('calc')" id="btn-calc" class="flex-1 py-2 text-[10px] font-bold text-gray-500 transition-all uppercase">Quick Calc</button>
+            <button onclick="switchTab('ref')" id="btn-ref" class="flex-1 py-2 text-[10px] font-bold text-gray-500 transition-all uppercase">Reference</button>
+        </div>
+
+        <!-- 页面容器 (开启滚动) -->
+        <div class="flex-1 overflow-y-auto custom-scroll">
+            
+            <!-- 页面 1: 调色手册 (现在由 JS 动态渲染全部 10 种颜色) -->
+            <div id="page-guide" class="p-4 space-y-4">
+                <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                    <h2 class="text-lg font-black italic uppercase text-white">Mixing Formulas</h2>
+                    <span class="text-[10px] text-gray-600 font-mono">ALL 10 COLORS</span>
+                </div>
+                <div class="space-y-4" id="guide-dynamic-list">
+                    <!-- JS 动态注入 -->
+                </div>
+                
+                <!-- 安全警示 -->
+                <div class="mt-6 p-4 rounded-lg border border-red-900/50 bg-red-950/10">
+                    <div class="text-red-600 font-bold text-xs mb-2 uppercase flex items-center">
+                        <span class="mr-2">⚠️</span> Caution / 安全须知
+                    </div>
+                    <p class="text-[9px] text-gray-500 leading-relaxed uppercase">远离儿童及宠物。操作温度严禁超过厂商规定。非食品级。请佩戴防护手套。</p>
+                </div>
+            </div>
+
+            <!-- 页面 2: 计算器 -->
+            <div id="page-calc" class="hidden p-6 space-y-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">蜡重量 (Wax Weight)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="waxWeight" value="1" class="flex-1 bg-black border border-gray-800 rounded px-4 py-3 text-white outline-none focus:border-red-600">
+                            <select id="weightUnit" class="bg-black border border-gray-800 rounded px-2 py-3 text-white">
+                                <option value="lb">lb</option>
+                                <option value="g">g</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">目标颜色 (Color)</label>
+                        <select id="targetColor" class="w-full bg-black border border-gray-800 rounded px-4 py-3 text-white outline-none">
+                            <optgroup label="Original Collection" id="opt-original"></optgroup>
+                            <optgroup label="Trending Collection" id="opt-trending"></optgroup>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-gray-500 mb-2 uppercase">
+                            <span>色彩浓度 (Density)</span>
+                            <span id="intensityLabel" class="text-red-500">Standard</span>
+                        </div>
+                        <input type="range" id="intensity" min="1" max="4" value="2" class="w-full h-1 bg-gray-800 rounded-lg appearance-none">
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest">实时预览 (Preview)</label>
+                    <div id="dynamic-preview" class="w-full h-20 rounded-xl flex items-center justify-center border border-gray-800">
+                        <span class="text-[10px] font-bold text-white/20 tracking-[0.3em] uppercase">Visual Gradation</span>
+                    </div>
+                </div>
+
+                <div class="bg-black/80 p-5 rounded-lg border border-gray-800">
+                    <h3 class="text-[10px] font-bold text-gray-500 mb-4 uppercase">配方结果:</h3>
+                    <div id="recipeResults" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- 页面 3: 基础参考 -->
+            <div id="page-ref" class="hidden p-4">
+                <h2 class="text-sm font-bold text-white mb-4 uppercase border-b border-gray-800 pb-2 flex justify-between">
+                    <span>Reference Library</span>
+                    <span class="text-[9px] text-gray-500">Level 1-4</span>
+                </h2>
+                <div class="space-y-4 pb-10" id="reference-list">
+                    <!-- JS 动态注入 -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const colorDB = {
+            'raspberry': { group:'original', red: 0.70, blue: 0.25, white: 0.05, hex: '#C71585', cn: '覆盆子' },
+            'coral': { group:'original', red: 0.50, yellow: 0.35, white: 0.15, hex: '#FF7F50', cn: '珊瑚橙' },
+            'turquoise': { group:'original', green: 0.82, blue: 0.13, white: 0.05, hex: '#40E0D0', cn: '绿松石' },
+            'lime': { group:'original', green: 0.25, bright_yellow: 0.70, white: 0.05, hex: '#32CD32', cn: '青柠' },
+            'olive': { group:'original', green: 0.85, yellow: 0.15, hex: '#808000', cn: '橄榄绿' },
+            'gray': { group:'original', white: 0.95, black: 0.05, hex: '#696969', cn: '炭灰' },
+            'lavender': { group:'trending', purple: 0.40, white: 0.60, hex: '#E6E6FA', cn: '薰衣草' },
+            'matcha': { group:'trending', green: 0.20, yellow: 0.30, white: 0.50, hex: '#ACC8AC', cn: '抹茶' },
+            'champagne': { group:'trending', brown: 0.10, yellow: 0.20, white: 0.70, hex: '#F7E7CE', cn: '香槟' },
+            'midnight': { group:'trending', dark_blue: 0.80, black: 0.20, hex: '#191970', cn: '午夜蓝' }
+        };
+
+        const refColors = [
+            { n: 'White', c: '#ffffff' }, { n: 'Red', c: '#ef4444' }, { n: 'Blue', c: '#3b82f6' },
+            { n: 'Yellow', c: '#eab308' }, { n: 'Green', c: '#22c55e' }, { n: 'Dark Blue', c: '#1e3a8a' },
+            { n: 'Brown', c: '#78350f' }, { n: 'Orange', c: '#f97316' }, { n: 'Violet', c: '#7c3aed' },
+            { n: 'Purple', c: '#a855f7' }, { n: 'Bright yellow', c: '#fbbf24' }, { n: 'Bright Lime', c: '#84cc16' },
+            { n: 'Aquamarine', c: '#7fffd4' }, { n: 'Pink', c: '#f472b6' }, { n: 'Bright pink', c: '#ec4899' },
+            { n: 'Black', c: '#111111' }
+        ];
+
+        const intensitySettings = {
+            1: { factor: 0.012, label: 'Pastel (淡雅)', filter: 'saturate(0.5) brightness(1.5)' },
+            2: { factor: 0.03, label: 'Standard (标准)', filter: 'saturate(1) brightness(1)' },
+            3: { factor: 0.05, label: 'Vibrant (浓郁)', filter: 'saturate(1.4) brightness(0.8)' },
+            4: { factor: 0.08, label: 'Deep (极深)', filter: 'saturate(2.0) brightness(0.4)' }
+        };
+
+        // 动态初始化 UI
+        function initApp() {
+            const guideList = document.getElementById('guide-dynamic-list');
+            const optOriginal = document.getElementById('opt-original');
+            const optTrending = document.getElementById('opt-trending');
+            
+            Object.entries(colorDB).forEach(([key, data]) => {
+                // 1. 渲染 Mixing Chart 列表
+                const item = document.createElement('div');
+                item.className = "space-y-1 cursor-pointer hover:bg-white/5 p-1 rounded transition";
+                item.onclick = () => loadFromGuide(key);
+                
+                let componentsHtml = '';
+                const comps = Object.entries(data).filter(([k]) => !['group','hex','cn'].includes(k));
+                
+                comps.forEach(([ckey, cval], idx) => {
+                    componentsHtml += `<div class="mixing-cell flex-1" style="color:${getHex(ckey)}">${Math.round(cval*100)}% ${translate(ckey)}</div>`;
+                    if(idx < comps.length - 1) componentsHtml += `<span>+</span>`;
+                });
+
+                item.innerHTML = `
+                    <div class="flex gap-1 text-[9px] font-bold uppercase items-center">
+                        ${componentsHtml} <span>=</span>
+                        <div class="flex-[1.5] h-8 rounded" style="background:${data.hex}"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-gray-500 px-1">
+                        <span>${data.cn} (${key.toUpperCase()})</span>
+                        <span class="text-red-500 font-bold uppercase">Calculate →</span>
+                    </div>
+                `;
+                guideList.appendChild(item);
+
+                // 2. 渲染 Select 下拉框
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = `${data.cn} (${key})`;
+                if(data.group === 'original') optOriginal.appendChild(opt);
+                else optTrending.appendChild(opt);
+            });
+
+            calculate();
+        }
+
+        function switchTab(tab) {
+            ['guide', 'calc', 'ref'].forEach(t => {
+                document.getElementById('page-' + t).classList.toggle('hidden', tab !== t);
+                document.getElementById('btn-' + t).className = tab === t ? 'flex-1 py-2 text-[10px] font-bold tab-active uppercase' : 'flex-1 py-2 text-[10px] font-bold text-gray-500 uppercase';
+            });
+            if(tab === 'ref') renderReference();
+        }
+
+        function loadFromGuide(key) {
+            document.getElementById('targetColor').value = key;
+            switchTab('calc');
+            calculate();
+        }
+
+        function calculate() {
+            const weight = parseFloat(document.getElementById('waxWeight').value) || 0;
+            const unit = document.getElementById('weightUnit').value;
+            const key = document.getElementById('targetColor').value;
+            const level = document.getElementById('intensity').value;
+
+            const colorData = colorDB[key];
+            const intensity = intensitySettings[level];
+            
+            document.getElementById('intensityLabel').innerText = intensity.label;
+            
+            const preview = document.getElementById('dynamic-preview');
+            preview.style.backgroundColor = colorData.hex;
+            preview.style.filter = intensity.filter;
+
+            let weightInLb = (unit === 'g') ? weight / 453.59 : weight;
+            let totalDyeG = weightInLb * intensity.factor * 28.35;
+
+            const container = document.getElementById('recipeResults');
+            container.innerHTML = '';
+
+            Object.entries(colorData).forEach(([comp, perc]) => {
+                if(['hex','group','cn'].includes(comp)) return;
+                const gram = (totalDyeG * perc).toFixed(3);
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center text-xs border-b border-gray-900 pb-2';
+                row.innerHTML = `<span class="text-gray-400 capitalize">${translate(comp)} (${Math.round(perc*100)}%)</span><span class="font-mono font-bold text-red-500">${gram}g</span>`;
+                container.appendChild(row);
+            });
+        }
+
+        function renderReference() {
+            const list = document.getElementById('reference-list');
+            if(list.children.length > 0) return; // 避免重复渲染
+            
+            refColors.forEach(color => {
+                const item = document.createElement('div');
+                item.className = 'space-y-1';
+                item.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">${color.n}</span>
+                        <span class="text-[8px] text-gray-700">DENSITY GRADIENT</span>
+                    </div>
+                    <div class="reference-grid">
+                        <div class="swatch-box" style="background:${color.c}; filter:${intensitySettings[1].filter}"></div>
+                        <div class="swatch-box" style="background:${color.c}; filter:${intensitySettings[2].filter}"></div>
+                        <div class="swatch-box" style="background:${color.c}; filter:${intensitySettings[3].filter}"></div>
+                        <div class="swatch-box" style="background:${color.c}; filter:${intensitySettings[4].filter}"></div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function getHex(c) {
+            return {red:'#ef4444',blue:'#3b82f6',white:'#fff',yellow:'#eab308',green:'#22c55e',bright_yellow:'#fbbf24',black:'#000',purple:'#a855f7',brown:'#78350f',dark_blue:'#1e3a8a'}[c] || '#444';
+        }
+
+        function translate(n) {
+            const d = {red:'红',blue:'蓝',white:'白',yellow:'黄',green:'绿',bright_yellow:'明黄',black:'黑',purple:'紫',brown:'棕',dark_blue:'深蓝'};
+            return d[n] || n;
+        }
+
+        document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calculate));
+        window.onload = initApp;
+    </script>
+</body>
+</html>
